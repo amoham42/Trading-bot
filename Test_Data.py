@@ -1,108 +1,25 @@
 import tensorflow as tf
-import yfinance as yf
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import MinMaxScaler
-
-my_model = tf.keras.models.load_model('my_rnn_model.h5')
-
+import preprocess as pp
+import Strategy as st
 
 
-def normalize_data(df):
-    min_max_scaler = MinMaxScaler()
-    df['Open'] = min_max_scaler.fit_transform(df['Open'].values.reshape(-1, 1))
-    df['High'] = min_max_scaler.fit_transform(df['High'].values.reshape(-1, 1))
-    df['Low'] = min_max_scaler.fit_transform(df['Low'].values.reshape(-1, 1))
-    df['Close'] = min_max_scaler.fit_transform(df['Close'].values.reshape(-1, 1))
-    df['Volume'] = min_max_scaler.fit_transform(df['Volume'].values.reshape(-1, 1))
-    df['EMA'] = min_max_scaler.fit_transform(df['EMA'].values.reshape(-1, 1))
-    df['EMAA'] = min_max_scaler.fit_transform(df['EMAA'].values.reshape(-1, 1))
-
-
-    return df
-
-
-
+PAST_CANDLES = 15
+TICK = 0.25
 PROFIT = 10
-LOSS = 30
-percent = 100.0
-
-# Load your candle data
-data = yf.download('NQM23.CME', start='2023-04-05', end='2023-04-06', interval='1m')
+LOSS = 20
+CONTRACT = 5
+PERCENT = 95.0
 
 
-
-ema = data['Close'].ewm(span=21, adjust=False).mean()
-emaa = data['Close'].ewm(span=14, adjust=False).mean()
-data['EMA'] = ema
-data['EMAA'] = emaa
-val = data["Close"] * data["Volume"]
-cum_val = val.cumsum()
-cum_vol = data["Volume"].cumsum()
-data["vwap"] = cum_val / cum_vol
-sma = data["vwap"].rolling(window=20).mean()
-std = data["vwap"].rolling(window=20).std()
-data["UpperBand"] = sma + std
-data["LowerBand"] = sma - std
-
-mask = (data.index.hour >= 9) & (data.index.minute >= 30) & (data.index.hour < 16)
-data = data.loc[mask]
-sec_data = data.copy()
-data = data.drop(['Adj Close'], axis=1)
-data = data.reset_index(drop=True)
-norm_data = data.copy()
+my_model = tf.keras.models.load_model('best_model.h5')
+norm_data = pd.read_csv('processed_data_minute2.csv')
+data = pd.read_csv('raw_data_minute2.csv')
+X, _, trades, labels = st.strategy_logic(test = True)
 
 
-norm_data = normalize_data(norm_data)
-
-
-labels = []
-trades = []
-sequences = []
-for i in range(len(data)-6):
-    if i< 9:
-        continue
-    if data.iloc[i]["Open"] < data.iloc[i]["Close"] and \
-                data.iloc[i + 1]["Open"] > data.iloc[i + 1]["Close"] and \
-                data.iloc[i + 2]["Open"] > data.iloc[i + 2]["Close"]:
-        if ((data.iloc[i + 3]["High"] - data.iloc[i + 3]["Open"]) / 0.25) >= PROFIT or \
-                    ((data.iloc[i + 4]["High"] - data.iloc[i + 3]["Open"]) / 0.25) >= PROFIT or \
-                    ((data.iloc[i + 5]["High"] - data.iloc[i + 3]["Open"]) / 0.25) >= PROFIT:
-            labels.append('Buy')
-            tred = sec_data.iloc[i + 4 : i + 7]
-            trades.append(tred)
-            seq = norm_data.iloc[i - 10:i + 3].values
-            
-            sequences.append(seq)
-        else:
-            labels.append('UNK')
-            tred = sec_data.iloc[i + 4 : i + 7]
-            trades.append(tred)
-            seq = norm_data.iloc[i - 10:i + 3].values
-            sequences.append(seq)
-    elif data.iloc[i]["Open"] > data.iloc[i]["Close"] and \
-                data.iloc[i + 1]["Open"] < data.iloc[i + 1]["Close"] and \
-                data.iloc[i + 2]["Open"] < data.iloc[i + 2]["Close"]:
-        if ((data.iloc[i + 3]["Open"] - data.iloc[i + 3]["Low"]) / 0.25) >= PROFIT or \
-                    ((data.iloc[i + 3]["Open"] - data.iloc[i + 4]["Low"]) / 0.25) >= PROFIT or \
-                        ((data.iloc[i + 3]["Open"] - data.iloc[i + 5]["Low"]) / 0.25) >= PROFIT:
-            labels.append('Sell')
-            tred = sec_data.iloc[i + 4 : i + 7]
-            trades.append(tred)
-            seq = norm_data.iloc[i - 10:i + 3].values
-            
-            sequences.append(seq)
-        else: 
-            labels.append('UNK')
-            tred = sec_data.iloc[i + 4 : i + 7]
-            trades.append(tred)
-            seq = norm_data.iloc[i - 10:i + 3].values
-
-            sequences.append(seq)
-X = np.array(sequences)
-
-
-X = np.reshape(X, (X.shape[0], X.shape[1], X.shape[2], 1))
+# testing to see if the model is profitable
 profit = 0
 loss = 0
 for seq in range(X.shape[0]):
@@ -112,25 +29,32 @@ for seq in range(X.shape[0]):
     predicted_probability = my_model.predict(array)
     predicted_percentages = predicted_probability * 100
 
-    if labels[seq] == "Buy" and predicted_percentages[0][0] >= percent:
-
-        if ((trades[seq].iloc[0]["High"] - trades[seq].iloc[0]["Open"]) / 0.25) >= PROFIT or \
-            ((trades[seq].iloc[1]["High"] - trades[seq].iloc[1]["Open"]) / 0.25) >= PROFIT or \
-            ((trades[seq].iloc[2]["High"] - trades[seq].iloc[2]["Open"]) / 0.25) >= PROFIT:
-            profit += (PROFIT * 5) - 5
+    if labels[seq] == "Buy" and predicted_percentages[0][0] >= PERCENT:
+        
+        if any([(trades[seq].iloc[j]["High"] - trades[seq].iloc[j]["Open"]) / TICK >= PROFIT for j in range(0, 5)]):
+            profit += (PROFIT * 5 * CONTRACT) - 5
+            print("MONEY")
+            
         else:
-            loss += (LOSS * 5) + 5
+            loss += (LOSS * 5 * CONTRACT) + 5
             print(trades[seq])
             print(labels[seq])
-    if labels[seq] == "Sell" and predicted_percentages[0][1] >= percent:
-        if ((trades[seq].iloc[0]["Open"] - trades[seq].iloc[0]["Low"]) / 0.25) >= PROFIT or \
-            ((trades[seq].iloc[1]["Open"] - trades[seq].iloc[1]["Low"]) / 0.25) >= PROFIT or \
-            ((trades[seq].iloc[2]["Open"] - trades[seq].iloc[2]["Low"]) / 0.25) >= PROFIT:
-            profit += (PROFIT * 5) - 5
+            print(predicted_percentages)
+        
+    if labels[seq] == "Sell" and predicted_percentages[0][1] >= PERCENT:
+   
+        if any([(trades[seq].iloc[j]["Open"] - trades[seq].iloc[j]["Low"]) / TICK >= PROFIT for j in range(0, 5)]):
+            profit += (PROFIT * 5 * CONTRACT) - 5
+            print("MONEY")
+           
         else:
-            loss += (LOSS * 5) + 5
+            loss += (LOSS * 5 * CONTRACT) + 5
             print(trades[seq])
             print(labels[seq])
+            print(predicted_percentages)
+    
+    
+        
             
 
 print("---------------------")
