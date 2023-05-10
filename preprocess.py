@@ -5,8 +5,8 @@ import yfinance as yf
 from pandas_market_calendars import get_calendar
 
 # Define the date range for the weeks you're interested in
-start_date = '2023-03-25'
-end_date = '2023-04-21'
+start_date = '2023-03-30'
+end_date = '2023-04-27'
 INTERVAL = '1m'
 
 def load_data(start_date, end_date):
@@ -48,11 +48,11 @@ def process_indicators(data):
 
     std = data["vwap"].std()
     data["UpperBand1"] = data["vwap"] + (1 * std)
-    data["LowerBand1"] = data["vwap"] + (1 * std)
+    data["LowerBand1"] = data["vwap"] - (1 * std)
     data["UpperBand2"] = data["vwap"] + (2 * std)
-    data["LowerBand2"] = data["vwap"] + (2 * std)
+    data["LowerBand2"] = data["vwap"] - (2 * std)
     data["UpperBand3"] = data["vwap"] + (3 * std)
-    data["LowerBand3"] = data["vwap"] + (3 * std)
+    data["LowerBand3"] = data["vwap"] - (3 * std)
 
     return data
 

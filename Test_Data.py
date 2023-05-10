@@ -7,8 +7,8 @@ import Strategy as st
 
 PAST_CANDLES = 15
 TICK = 0.25
-PROFIT = 10
-LOSS = 20
+PROFIT = 8
+LOSS = 60
 CONTRACT = 5
 PERCENT = 95.0
 
@@ -29,23 +29,24 @@ for seq in range(X.shape[0]):
     predicted_probability = my_model.predict(array)
     predicted_percentages = predicted_probability * 100
 
-    if labels[seq] == "Buy" and predicted_percentages[0][0] >= PERCENT:
+    if predicted_percentages[0][0] >= PERCENT:
         
         if any([(trades[seq].iloc[j]["High"] - trades[seq].iloc[j]["Open"]) / TICK >= PROFIT for j in range(0, 5)]):
             profit += (PROFIT * 5 * CONTRACT) - 5
             print("MONEY")
-            
+              
         else:
             loss += (LOSS * 5 * CONTRACT) + 5
             print(trades[seq])
             print(labels[seq])
             print(predicted_percentages)
         
-    if labels[seq] == "Sell" and predicted_percentages[0][1] >= PERCENT:
+    if predicted_percentages[0][1] >= PERCENT:
    
         if any([(trades[seq].iloc[j]["Open"] - trades[seq].iloc[j]["Low"]) / TICK >= PROFIT for j in range(0, 5)]):
             profit += (PROFIT * 5 * CONTRACT) - 5
             print("MONEY")
+            
            
         else:
             loss += (LOSS * 5 * CONTRACT) + 5

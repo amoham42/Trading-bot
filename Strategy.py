@@ -10,7 +10,7 @@ from keras.callbacks import ModelCheckpoint
 
 SAVE = False
 
-PAST_CANDLES = 15
+PAST_CANDLES = 5
 TICK = 0.25
 
 PROFIT = 10
@@ -37,14 +37,14 @@ def strategy_logic(test):
         if  data.iloc[i]["Open"] < data.iloc[i]["Close"] and \
             data.iloc[i + 1]["Open"] >= data.iloc[i + 1]["Close"] and \
             data.iloc[i + 2]["Open"] >= data.iloc[i + 2]["Close"]:
-            # if not any([(data.iloc[i + 3]["Open"] - data.iloc[i + j]["Low"]) / TICK >= LOSS for j in range(3, 5)]):
-            if any([(data.iloc[i + j]["High"] - data.iloc[i + 3]["Open"]) / TICK >= PROFIT for j in range(3, 6)]):
+            if not any([(data.iloc[i + 3]["Open"] - data.iloc[i + j]["Low"]) / TICK >= LOSS for j in range(3, 5)]):
+                if any([(data.iloc[i + j]["High"] - data.iloc[i + 3]["Open"]) / TICK >= PROFIT for j in range(3, 5)]):
 
-                labels.append('Buy')
-                tred = sec_data.iloc[i + 3 : i + 10]
-                trades.append(tred)
-                seq = norm_data.iloc[i - PAST_CANDLES:i + 3].values
-                sequences.append(seq)
+                    labels.append('Buy')
+                    tred = sec_data.iloc[i + 3 : i + 10]
+                    trades.append(tred)
+                    seq = norm_data.iloc[i - PAST_CANDLES:i + 3].values
+                    sequences.append(seq)
 
             else:
 
@@ -59,14 +59,14 @@ def strategy_logic(test):
         elif data.iloc[i]["Open"] > data.iloc[i]["Close"] and \
              data.iloc[i + 1]["Open"] <= data.iloc[i + 1]["Close"] and \
              data.iloc[i + 2]["Open"] <= data.iloc[i + 2]["Close"]:
-            # if not any([(data.iloc[i + j]["High"] - data.iloc[i + 3]["Open"]) / TICK >= LOSS for j in range(3, 6)]):
-            if any([(data.iloc[i + 3]["Open"] - data.iloc[i + j]["Low"]) / TICK >= PROFIT for j in range(3, 6)]):
+            if not any([(data.iloc[i + j]["High"] - data.iloc[i + 3]["Open"]) / TICK >= LOSS for j in range(3, 6)]):
+                if any([(data.iloc[i + 3]["Open"] - data.iloc[i + j]["Low"]) / TICK >= PROFIT for j in range(3, 5)]):
 
-                labels.append('Sell')
-                tred = sec_data.iloc[i + 3 : i + 10]
-                trades.append(tred)
-                seq = norm_data.iloc[i - PAST_CANDLES:i + 3].values
-                sequences.append(seq)
+                    labels.append('Sell')
+                    tred = sec_data.iloc[i + 3 : i + 10]
+                    trades.append(tred)
+                    seq = norm_data.iloc[i - PAST_CANDLES:i + 3].values
+                    sequences.append(seq)
 
             else: 
 
@@ -75,16 +75,21 @@ def strategy_logic(test):
                 trades.append(tred)
                 seq = norm_data.iloc[i - PAST_CANDLES:i + 3].values
                 sequences.append(seq)
-        
+
+    for i, elem in enumerate(sequences):
+        if elem.shape != (18, 14):
+            sequences.remove(elem)
+            labels.remove(labels[i])
+            trades.remove(trades[i])
+            
 
     print(len(labels))
     Y = pd.get_dummies(labels).values
- 
-
 
     # Convert the sequences to numpy arrays
     X = np.array(sequences)
     X = np.reshape(X, (X.shape[0], X.shape[1], X.shape[2], 1))
+    print(X.shape)
 
 
     return X, Y, trades, labels
