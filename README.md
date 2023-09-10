@@ -3,6 +3,8 @@
 # Members:
 Amin Hijaz, Arman Mohammadi, Mohammad Hijaz
 
+# Poster:
+![alt text](poster.png)
 # Introduction:
 Inspiration
 After Experiencing trading and analyzing the US Stock Market, we found out that spending long hours going through the charts and analyzing them manually is very time-consuming work and because of human bias can be very inefficient. We were inspired to create a solution to take out human emotions and bring faster efficiency by using deep learning models.
